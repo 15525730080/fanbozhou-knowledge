@@ -1,0 +1,77 @@
+(function() {
+  var style = getComputedStyle(document.documentElement);
+  var accent = style.getPropertyValue('--accent').trim();
+  var accent2 = style.getPropertyValue('--accent2').trim();
+  var ink = style.getPropertyValue('--ink').trim();
+  var muted = style.getPropertyValue('--muted').trim();
+  var rule = style.getPropertyValue('--rule').trim();
+  var bg2 = style.getPropertyValue('--bg2').trim();
+
+  // --- Chart: Framework Radar ---
+  var el1 = document.getElementById('chart-framework-radar');
+  if (el1) {
+    var chartRadar = echarts.init(el1, null, { renderer: 'svg' });
+    chartRadar.setOption({
+      animation: false,
+      tooltip: { trigger: 'item' },
+      legend: { data: ['LangChain', 'CrewAI', 'AutoGen', 'Semantic Kernel'], textStyle: { color: muted }, bottom: 0 },
+      radar: {
+        indicator: [
+          { name: '生态成熟度', max: 10 }, { name: '学习曲线', max: 10 },
+          { name: '多Agent支持', max: 10 }, { name: '灵活性', max: 10 },
+          { name: '企业级', max: 10 }, { name: '社区活跃', max: 10 }
+        ],
+        axisName: { color: muted }, splitArea: { areaStyle: { color: ['transparent'] } },
+        axisLine: { lineStyle: { color: rule } }, splitLine: { lineStyle: { color: rule } }
+      },
+      series: [{
+        type: 'radar',
+        data: [
+          { value: [10, 3, 8, 10, 7, 10], name: 'LangChain', lineStyle: { color: accent }, areaStyle: { color: accent + '33' } },
+          { value: [6, 8, 9, 6, 5, 7], name: 'CrewAI', lineStyle: { color: accent2 }, areaStyle: { color: accent2 + '33' } },
+          { value: [8, 6, 9, 7, 8, 8], name: 'AutoGen', lineStyle: { color: '#f59e0b' }, areaStyle: { color: '#f59e0b33' } },
+          { value: [8, 8, 7, 7, 10, 7], name: 'Semantic Kernel', lineStyle: { color: '#10b981' }, areaStyle: { color: '#10b98133' } }
+        ]
+      }]
+    });
+    window.addEventListener('resize', function() { chartRadar.resize(); });
+  }
+
+  // --- Chart: Benchmark Scores ---
+  var el2 = document.getElementById('chart-benchmark');
+  if (el2) {
+    var chartBench = echarts.init(el2, null, { renderer: 'svg' });
+    chartBench.setOption({
+      animation: false,
+      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+      legend: { data: ['Claude 4.5', 'GPT-5.2', 'Gemini 2.5'], textStyle: { color: muted }, top: 0 },
+      grid: { left: '3%', right: '4%', bottom: '3%', top: '15%', containLabel: true },
+      xAxis: { type: 'category', data: ['SWE-bench', 'OSWorld', 'WebArena', 'GAIA', 'TAU-Bench'], axisLabel: { color: muted }, axisLine: { lineStyle: { color: rule } } },
+      yAxis: { type: 'value', max: 100, axisLabel: { color: muted, formatter: '{value}%' }, axisLine: { lineStyle: { color: rule } }, splitLine: { lineStyle: { color: rule + '66' } } },
+      series: [
+        { name: 'Claude 4.5', type: 'bar', data: [74.4, 58, 45, 42, 68], itemStyle: { color: accent, borderRadius: [4, 4, 0, 0] } },
+        { name: 'GPT-5.2', type: 'bar', data: [62, 61.9, 52, 48, 72], itemStyle: { color: accent2, borderRadius: [4, 4, 0, 0] } },
+        { name: 'Gemini 2.5', type: 'bar', data: [58, 55, 48, 45, 65], itemStyle: { color: '#10b981', borderRadius: [4, 4, 0, 0] } }
+      ]
+    });
+    window.addEventListener('resize', function() { chartBench.resize(); });
+  }
+
+  // --- Chart: Eval Pipeline ---
+  var el3 = document.getElementById('chart-eval-pipeline');
+  if (el3) {
+    var chartEval = echarts.init(el3, null, { renderer: 'svg' });
+    chartEval.setOption({
+      animation: false,
+      tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
+      grid: { left: '3%', right: '4%', bottom: '3%', top: '10%', containLabel: true },
+      xAxis: { type: 'category', data: ['任务完成度', '工具准确率', '推理质量', '效率', '鲁棒性', '幻觉率'], axisLabel: { color: muted, fontSize: 11 }, axisLine: { lineStyle: { color: rule } } },
+      yAxis: { type: 'value', max: 100, axisLabel: { color: muted, formatter: '{value}%' }, axisLine: { lineStyle: { color: rule } }, splitLine: { lineStyle: { color: rule + '66' } } },
+      series: [
+        { name: '生产级要求', type: 'bar', data: [95, 99, 80, 70, 99, 99], itemStyle: { color: accent + '44', borderRadius: [4, 4, 0, 0] }, label: { show: true, position: 'top', color: muted, fontSize: 11, formatter: '{c}%' } },
+        { name: '典型实际值', type: 'bar', data: [78, 85, 65, 55, 82, 90], itemStyle: { color: accent, borderRadius: [4, 4, 0, 0] }, label: { show: true, position: 'top', color: ink, fontSize: 11, formatter: '{c}%' } }
+      ]
+    });
+    window.addEventListener('resize', function() { chartEval.resize(); });
+  }
+})();
