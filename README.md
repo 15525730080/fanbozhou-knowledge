@@ -10,7 +10,7 @@
 |------|------|------|
 | 🐍 **Python 3.14 知识体系** | 语言基础、CPython 源码剖析、执行流程与编译加速（17 章） | [在线阅读](https://15525730080.github.io/fanbozhou-knowledge/python314/) |
 | 🤖 **AI 应用开发完全手册** | LangChain、RAG、MCP、Skill/Tool 系统、评测体系（16 章） | [在线阅读](https://15525730080.github.io/fanbozhou-knowledge/ai/ai-handbook.html) |
-| 🧪 **测试开发知识总结** | 测试框架、自动化测试、性能测试、CI/CD 质量门禁（规划中） | — |
+| 🧪 **测试开发知识总结** | 大前端质量、服务端质量、AI 质量体系（3 篇 14 章） | [在线阅读](https://15525730080.github.io/fanbozhou-knowledge/qa/qa-handbook.html) |
 
 ## 🚀 在线访问
 
@@ -45,4 +45,4 @@ MIT License
 
 ---
 
-**更新于**: 2026-06-22
+**更新于**: 2026-06-28
