@@ -3690,6 +3690,331 @@ from locust import HttpUser, task, between, events
 <li>**压测客户端成为瓶颈**：单机 Locust/JMeter 的并发上限约 1000-3000，超过后压测客户端自身 CPU 成为瓶颈，需要分布式部署</li>
 <li>**忽略 Think Time**：不设置思考时间的压测会产生不真实的超高频请求，结果无法反映真实用户场景</li>
 <li>**连接池耗尽**：压测工具的默认连接数可能不够，需要调高 `max_connections` 和 `connection_pool_size`</li>
+<li>**数据量不足**：测试数据量太小，无法模拟真实场景，导致测试结果失真（铺底数据应 ≥ 生产的20%）</li>
+<li>**缓存预热缺失**：未预热导致前期数据失真，JIT 编译、连接池初始化、缓存预热都需要时间</li>
+<li>**压测机瓶颈**：压测机本身成为瓶颈，无法产生足够压力，需要监控压测机自身资源</li>
+</ul>
+
+<hr>
+
+<h4 id="系统摸底与需求来源">系统摸底与需求来源</h4>
+
+<p>性能需求来源多样，需要系统化地梳理和量化：</p>
+
+<div class="table-wrap"><table>
+<thead><tr><th>需求来源</th><th>说明</th><th>示例</th></tr></thead>
+<tbody>
+<tr><td>业务方要求</td><td>大促目标、用户增长预期</td><td>双11目标支撑10万QPS</td></tr>
+<tr><td>历史数据推算</td><td>根据生产日志监控数据推算</td><td>当前峰值5万，预留3倍buffer</td></tr>
+<tr><td>竞品对标</td><td>与同类系统性能对比</td><td>响应时间P99 < 200ms</td></tr>
+<tr><td>合规/合同要求</td><td>SLA、SLO约定</td><td>可用性99.99%</td></tr>
+</tbody></table></div>
+
+<p><strong>系统摸底内容（现状评估）：</strong></p>
+<ul>
+<li>当前系统QPS/TPS峰值、日均调用量</li>
+<li>系统架构（单体/微服务/云原生）</li>
+<li>技术栈（语言、框架、中间件、数据库）</li>
+<li>历史性能瓶颈和故障记录</li>
+<li>上下游依赖关系和调用链路</li>
+</ul>
+
+<h4 id="极限测试类型">极限测试类型</h4>
+
+<div class="table-wrap"><table>
+<thead><tr><th>测试类型</th><th>目的</th><th>方法</th></tr></thead>
+<tbody>
+<tr><td>负载测试</td><td>找到性能拐点</td><td>逐步增加负载，每级稳定5-10分钟</td></tr>
+<tr><td>压力测试</td><td>测试系统极限</td><td>超过预期负载，观察系统行为</td></tr>
+<tr><td>容量测试</td><td>确定最大处理能力</td><td>持续加压直到系统达到瓶颈</td></tr>
+<tr><td>破坏性测试</td><td>找到崩溃临界点</td><td>极端负载下测试系统恢复能力</td></tr>
+</tbody></table></div>
+
+<hr>
+
+<h4 id="测试环境与线上环境">测试环境与线上环境</h4>
+
+<div class="table-wrap"><table>
+<thead><tr><th>维度</th><th>测试环境</th><th>生产环境</th></tr></thead>
+<tbody>
+<tr><td>数据真实性</td><td>模拟数据</td><td>真实数据</td></tr>
+<tr><td>流量真实性</td><td>模拟流量</td><td>真实流量</td></tr>
+<tr><td>风险</td><td>低</td><td>高（可能影响用户）</td></tr>
+<tr><td>成本</td><td>低</td><td>高（需要冗余资源）</td></tr>
+<tr><td>发现问题能力</td><td>有限</td><td>强</td></tr>
+</tbody></table></div>
+
+<p><strong>测试环境搭建要点：</strong></p>
+<ul>
+<li>硬件配置与生产等比例缩小（或同配置）</li>
+<li>数据量至少达到生产的20%以上</li>
+<li>网络拓扑、中间件版本与生产一致</li>
+<li>建议搭建独立的性能测试环境，避免与功能测试互相干扰</li>
+</ul>
+
+<p><strong>生产环境压测风险控制：</strong></p>
+<ul>
+<li>选择低峰期（凌晨2:00-5:00）执行</li>
+<li>逐步加压，设置熔断阈值（如错误率超过1%自动停止）</li>
+<li>准备回滚方案</li>
+<li>监控告警全覆盖</li>
+</ul>
+
+<hr>
+
+<h4 id="数据准备与构造">数据准备与构造</h4>
+
+<p>测试数据分为三类，各有不同作用：</p>
+
+<div class="table-wrap"><table>
+<thead><tr><th>数据类型</th><th>说明</th><th>作用</th></tr></thead>
+<tbody>
+<tr><td>铺底数据（背景数据）</td><td>模拟生产环境历史数据</td><td>让数据库处于真实状态</td></tr>
+<tr><td>测试数据（参数化数据）</td><td>压测过程中使用的变量数据</td><td>避免缓存命中、模拟真实请求</td></tr>
+<tr><td>热点数据</td><td>高频访问的数据</td><td>模拟真实访问分布（二八定律）</td></tr>
+</tbody></table></div>
+
+<p><strong>数据量要求：</strong></p>
+<ul>
+<li>铺底数据量 ≥ 生产数据量的20%</li>
+<li>参数化数据量 ≥ 并发用户数 × 每个用户请求数 × 10倍</li>
+<li>数据分布符合生产特征（正态分布、幂律分布等）</li>
+</ul>
+
+<p><strong>数据构造方法：</strong></p>
+<ul>
+<li>从生产脱敏导入（最真实，推荐）</li>
+<li>脚本批量生成（灵活可控）</li>
+<li>数据工厂/数据平台构造</li>
+<li>基于模型生成（保持数据特征）</li>
+</ul>
+
+<hr>
+
+<h4 id="读写测试关注点">读写测试关注点</h4>
+
+<p><mark class="key">读测试</mark>关注点：</p>
+<ul>
+<li>缓存命中率影响</li>
+<li>数据库索引效率</li>
+<li>分页查询深度影响（深度分页性能衰减）</li>
+<li>关联查询复杂度</li>
+<li>读写分离下的从库延迟</li>
+</ul>
+
+<p><mark class="key">写测试</mark>关注点：</p>
+<ul>
+<li>数据库锁竞争（行锁、表锁）</li>
+<li>事务隔离级别影响</li>
+<li>写入性能与日志（binlog、redo log）</li>
+<li>唯一索引冲突</li>
+<li>批量写入优化</li>
+</ul>
+
+<hr>
+
+<h4 id="全链路压测架构">全链路压测架构</h4>
+
+<p>全链路压测是模拟真实业务场景的系统性测试方法，核心架构包含：</p>
+<ul>
+<li><strong>压测控制台</strong>：任务管理、场景配置</li>
+<li><strong>流量录制与回放系统</strong>：录制真实流量并回放</li>
+<li><strong>数据染色与隔离中间件</strong>：识别压测流量并隔离</li>
+<li><strong>监控与告警系统</strong>：实时监控全链路指标</li>
+<li><strong>压测引擎</strong>：JMeter/Locust/自研工具</li>
+</ul>
+
+<p><strong>流量录制方式：</strong></p>
+<div class="table-wrap"><table>
+<thead><tr><th>方式</th><th>实现</th><th>特点</th></tr></thead>
+<tbody>
+<tr><td>网卡层抓包</td><td>tcpdump</td><td>无侵入，但解析复杂</td></tr>
+<tr><td>应用层代理</td><td>Nginx/Envoy</td><td>可修改流量，性能有损耗</td></tr>
+<tr><td>SDK埋点</td><td>字节码增强</td><td>最灵活，需要集成</td></tr>
+</tbody></table></div>
+
+<p><strong>流量回放模式：</strong></p>
+<ul>
+<li>按比例回放（如2倍流量）</li>
+<li>等比放大（模拟更高并发）</li>
+<li>定向回放（特定接口/场景）</li>
+</ul>
+
+<p><strong>流量回放注意事项：</strong></p>
+<ul>
+<li>时间戳处理（避免过期数据）</li>
+<li>依赖服务Mock或同步回放</li>
+<li>数据冲突处理（唯一键）</li>
+<li>回放速率控制</li>
+</ul>
+
+<hr>
+
+<h4 id="全链路监控层次">全链路监控层次</h4>
+
+<div class="table-wrap"><table>
+<thead><tr><th>层次</th><th>监控内容</th><th>工具</th></tr></thead>
+<tbody>
+<tr><td>基础设施</td><td>CPU、内存、磁盘、网络</td><td>Prometheus、Zabbix</td></tr>
+<tr><td>应用层</td><td>JVM、线程池、连接池</td><td>SkyWalking、Pinpoint</td></tr>
+<tr><td>中间件</td><td>Redis、MQ、数据库</td><td>各中间件监控</td></tr>
+<tr><td>业务层</td><td>QPS、成功率、延迟</td><td>自定义埋点</td></tr>
+<tr><td>链路层</td><td>调用链、依赖关系</td><td>Jaeger、Zipkin</td></tr>
+</tbody></table></div>
+
+<hr>
+
+<h4 id="中间件专项指标">中间件专项指标</h4>
+
+<div class="table-wrap"><table>
+<thead><tr><th>中间件</th><th>关键指标</th></tr></thead>
+<tbody>
+<tr><td>数据库</td><td>慢查询数量、连接池使用率、锁等待时间、主从延迟、缓存命中率</td></tr>
+<tr><td>Redis</td><td>命令耗时分布、内存碎片率、连接数、命中率、大Key/热Key</td></tr>
+<tr><td>消息队列</td><td>生产/消费TPS、消息堆积量、消费延迟、分区均衡性</td></tr>
+</tbody></table></div>
+
+<hr>
+
+<h4 id="执行方式汇总">执行方式汇总</h4>
+
+<div class="table-wrap"><table>
+<thead><tr><th>方式</th><th>说明</th><th>适用场景</th></tr></thead>
+<tbody>
+<tr><td>基准测试</td><td>单用户单请求，获取基线数据</td><td>性能基线建立</td></tr>
+<tr><td>负载测试</td><td>逐步增加负载</td><td>容量规划</td></tr>
+<tr><td>压力测试</td><td>超过预期负载</td><td>极限测试</td></tr>
+<tr><td>稳定性测试</td><td>长时间持续负载</td><td>内存泄漏、连接池耗尽</td></tr>
+<tr><td>浪涌测试</td><td>突发流量脉冲</td><td>秒杀、大促场景</td></tr>
+<tr><td>流量回放</td><td>真实流量回放</td><td>全链路压测</td></tr>
+</tbody></table></div>
+
+<hr>
+
+<h4 id="性能调优方向">性能调优方向</h4>
+
+<div class="table-wrap"><table>
+<thead><tr><th>层面</th><th>调优手段</th></tr></thead>
+<tbody>
+<tr><td>应用代码</td><td>算法优化、异步化、缓存、池化</td></tr>
+<tr><td>JVM</td><td>GC调优、堆内存设置、线程池</td></tr>
+<tr><td>数据库</td><td>SQL优化、索引、分库分表、读写分离</td></tr>
+<tr><td>中间件</td><td>连接池、集群部署、参数调优</td></tr>
+<tr><td>架构</td><td>缓存前置、异步解耦、限流降级</td></tr>
+<tr><td>基础设施</td><td>扩容、负载均衡、CDN</td></tr>
+</tbody></table></div>
+
+<hr>
+
+<h4 id="ai应用性能测试专项">AI应用性能测试（专项）</h4>
+
+<p>AI应用与传统应用在压测方面有本质区别：</p>
+
+<div class="table-wrap"><table>
+<thead><tr><th>维度</th><th>传统应用</th><th>AI应用</th></tr></thead>
+<tbody>
+<tr><td>响应时间</td><td>确定性</td><td>不确定性（生成式）</td></tr>
+<tr><td>吞吐量</td><td>QPS/TPS</td><td>RPM（Requests Per Minute）、TPM（Tokens Per Minute）</td></tr>
+<tr><td>资源消耗</td><td>CPU/内存为主</td><td>GPU显存、算力为主</td></tr>
+<tr><td>数据特征</td><td>结构化</td><td>非结构化（文本、图像）</td></tr>
+<tr><td>结果验证</td><td>确定性</td><td>概率性（需要质量评估）</td></tr>
+<tr><td>流式响应</td><td>无</td><td>有（SSE/WebSocket）</td></tr>
+</tbody></table></div>
+
+<p><strong>AI应用五大核心指标：</strong></p>
+<div class="table-wrap"><table>
+<thead><tr><th>指标</th><th>全称</th><th>说明</th><th>用户体验影响</th></tr></thead>
+<tbody>
+<tr><td><strong>TTFT</strong></td><td>Time To First Token</td><td>首Token延迟</td><td>用户感知响应速度</td></tr>
+<tr><td><strong>TPOT</strong></td><td>Time Per Output Token</td><td>每个输出Token的间隔</td><td>生成流畅度</td></tr>
+<tr><td><strong>TPS</strong></td><td>Tokens Per Second</td><td>每秒生成Token数</td><td>吞吐量</td></tr>
+<tr><td><strong>RPM</strong></td><td>Requests Per Minute</td><td>每分钟请求数</td><td>并发处理能力</td></tr>
+<tr><td><strong>Latency</strong></td><td>端到端延迟</td><td>完整响应时间</td><td>整体体验</td></tr>
+</tbody></table></div>
+
+<p><strong>AI应用其他重要指标：</strong></p>
+<ul>
+<li><strong>E2E Latency</strong>：端到端延迟（从请求到最后一个Token）</li>
+<li><strong>Input Tokens</strong>：输入Token数（影响成本）</li>
+<li><strong>Output Tokens</strong>：输出Token数（影响成本）</li>
+<li><strong>Queue Time</strong>：排队等待时间</li>
+<li><strong>GPU Utilization</strong>：GPU利用率</li>
+<li><strong>GPU Memory Used</strong>：GPU显存使用量</li>
+<li><strong>Batch Size</strong>：批处理大小</li>
+<li><strong>Prefill Time</strong>：预填充时间（处理输入）</li>
+<li><strong>Decode Time</strong>：解码时间（生成输出）</li>
+</ul>
+
+<p><strong>AI应用压测场景设计：</strong></p>
+<div class="table-wrap"><table>
+<thead><tr><th>场景</th><th>说明</th></tr></thead>
+<tbody>
+<tr><td>不同并发数</td><td>1/5/10/20/50/100并发</td></tr>
+<tr><td>不同输入长度</td><td>短文本(100 token)、中文本(1000 token)、长文本(4000+ token)</td></tr>
+<tr><td>不同输出长度</td><td>限制max_tokens为50/100/200/500</td></tr>
+<tr><td>流式 vs 非流式</td><td>分别测试SSE和普通HTTP</td></tr>
+<tr><td>混合场景</td><td>不同长度请求混合</td></tr>
+<tr><td>持续压测</td><td>长时间运行（30min+）观察稳定性</td></tr>
+</tbody></table></div>
+
+<p><strong>压测矩阵设计：</strong></p>
+<div class="table-wrap"><table>
+<thead><tr><th>并发数</th><th>输入长度</th><th>输出长度</th><th>测试目的</th></tr></thead>
+<tbody>
+<tr><td>1</td><td>100</td><td>100</td><td>基线性能</td></tr>
+<tr><td>10</td><td>100</td><td>100</td><td>低并发</td></tr>
+<tr><td>10</td><td>1000</td><td>200</td><td>中文本并发</td></tr>
+<tr><td>50</td><td>100</td><td>100</td><td>高并发短文本</td></tr>
+<tr><td>50</td><td>1000</td><td>500</td><td>高并发中文本</td></tr>
+<tr><td>100</td><td>100</td><td>100</td><td>极限并发</td></tr>
+</tbody></table></div>
+
+<p><strong>AI应用压测工具：</strong></p>
+<div class="table-wrap"><table>
+<thead><tr><th>工具</th><th>特点</th></tr></thead>
+<tbody>
+<tr><td>Locust</td><td>Python编写，支持自定义，社区活跃</td></tr>
+<tr><td>LLM-Benchmark</td><td>专门针对LLM的压测工具</td></tr>
+<tr><td>EvalScope</td><td>魔搭官方，支持模型能力+性能评测</td></tr>
+<tr><td>vLLM benchmark</td><td>vLLM自带压测脚本</td></tr>
+<tr><td>自定义脚本</td><td>基于OpenAI API格式开发</td></tr>
+</tbody></table></div>
+
+<p><strong>AI应用性能瓶颈定位：</strong></p>
+<div class="table-wrap"><table>
+<thead><tr><th>瓶颈</th><th>表现</th><th>优化方向</th></tr></thead>
+<tbody>
+<tr><td>GPU显存不足</td><td>OOM、排队时间长</td><td>量化、模型切分、扩容</td></tr>
+<tr><td>Prefill瓶颈</td><td>TTFT高</td><td>输入长度限制、KV Cache优化</td></tr>
+<tr><td>Decode瓶颈</td><td>TPS低</td><td>批处理优化、投机采样</td></tr>
+<tr><td>带宽瓶颈</td><td>长文本慢</td><td>压缩、分布式推理</td></tr>
+<tr><td>队列堆积</td><td>排队时间长</td><td>扩容、限流、优先级队列</td></tr>
+</tbody></table></div>
+
+<p><strong>PD分离架构（Prefill-Decode分离）：</strong></p>
+<ul>
+<li><strong>Prefill阶段</strong>：计算密集型，需要高算力</li>
+<li><strong>Decode阶段</strong>：显存密集型，需要高带宽</li>
+<li>分离部署可优化各自瓶颈，提升整体吞吐</li>
+</ul>
+
+<p><strong>AI应用容量规划：</strong></p>
+<pre><code>所需GPU数量 = (目标RPM × 平均Token数 × 单Token耗时) / (60 × GPU利用率)</code></pre>
+
+<hr>
+
+<h4 id="压测实施Checklist">压测实施Checklist</h4>
+
+<ul>
+<li>明确性能目标和验收标准</li>
+<li>完成系统摸底和架构梳理</li>
+<li>准备测试环境和数据（铺底数据 + 参数化数据 + 热点数据）</li>
+<li>设计压测场景（单接口 → 单链路 → 全链路）</li>
+<li>配置监控和告警（基础设施 + 应用 + 中间件 + 业务 + 链路）</li>
+<li>执行压测并观察指标</li>
+<li>分析瓶颈并调优</li>
+<li>重复验证直到达标（至少3轮取均值）</li>
+<li>输出测试报告和容量评估</li>
 </ul>
 
 <hr>
